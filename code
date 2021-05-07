@@ -1,0 +1,228 @@
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np 
+import pandas as pd
+import pandas_profiling as pp
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn import metrics
+from sklearn.metrics import confusion_matrix,accuracy_score,roc_curve,classification_report
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import (
+    classification_report,
+    recall_score,
+    precision_score,
+    accuracy_score)
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import VotingClassifier
+from sklearn.svm import SVC
+
+pd.set_option('display.max_columns', 100)
+from google.colab import files
+uploaded = files.upload()
+df = pd.read_csv('heart.csv')
+print(df.head())
+
+
+# Exploring Data
+
+# missing values
+print(df.isnull().sum())
+
+# data summary
+print("\n",df.describe(),'\n\n')
+
+print(df.info())
+
+
+df_target = df.groupby("target").size()
+print(df_target)
+plt.pie(df_target.values, labels = ["target 0", "target 1"], autopct='%1.1f%%', radius = 1.5, textprops = {"fontsize" : 16}) 
+plt.show()
+
+
+df_sex = df.groupby(["sex","target"]).size()
+print(df_sex)
+plt.pie(df_sex.values, labels = ["sex_0,target_0", "sex_0,target_1", "sex_1,target_0", "sex_1,target_1"],autopct='%1.1f%%',radius = 1.5, textprops = {"fontsize" : 14})
+plt.show()
+
+
+plt.hist([df[df.target==0].age, df[df.target==1].age], bins = 20, alpha = 0.5, label = ["no heart disease","with heart disease"])
+plt.xlabel("Age")
+plt.ylabel("Percentage")
+plt.title("Heart Disease by Age")
+plt.legend()
+plt.show()
+
+plt.hist([df[df.target==0].chol, df[df.target==1].chol], bins = 20, alpha = 0.5, label = ["no heart disease","with heart disease"])
+plt.xlabel("Cholesterol Levels (in mg/dl)")
+plt.ylabel("Percentage")
+plt.title("Heart Disease by Cholesterol")
+plt.legend()
+plt.show()
+
+
+plt.hist([df[df.target==0].thalach, df[df.target==1].thalach], bins = 20, alpha = 0.5, label = ["no heart disease","with heart disease"])
+plt.xlabel("Thalach (in bpm)")
+plt.ylabel("Percentage")
+plt.title("Heart Disease by Thalach")
+plt.legend()
+plt.show()
+
+
+plt.hist([df[df.target==0].cp, df[df.target==1].cp], bins = 20, alpha = 0.5, label = ["no heart disease","with heart disease"])
+plt.xlabel("Chest Pain Type")
+plt.ylabel("Percentage")
+plt.title("Heart Disease by Chest Pain")
+plt.legend()
+plt.show()
+
+
+X = df.drop('target',axis=1)
+y = df["target"]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=2020, stratify=y)
+
+# preprocessing / normalizing data
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+
+# Logistic Regression
+
+log = LogisticRegression()
+model1 = log.fit(X_train, y_train)
+log_predict = log.predict(X_test)
+log_conf_matrix = confusion_matrix(y_test, log_predict)
+log_acc_score = accuracy_score(y_test, log_predict)
+print("confusion matrix")
+print(log_conf_matrix)
+print("\n")
+print("Accuracy of Logistic Regression:",round(log_acc_score*100,4),'%\n')
+print(classification_report(y_test,log_predict))
+
+
+# Confusion Matrix plot for Log Reg
+cf = metrics.confusion_matrix(y_test, log_predict)
+print(cf)
+metrics.plot_confusion_matrix(log, X_test, y_test)
+plt.show()
+
+# precision_rate = tp / (tp + fp)
+precision_rate = 45/(45+8)
+# recall_rate = tp / (tp + fn)
+recall_rate = 45/(45+5)
+print("The precision rate is: ", precision_rate)
+print("The recall rate is: ", recall_rate)
+
+# The recall rate is about 90%, that is, still 10% of 
+# patients who have heart disease will be misdiagnosed.
+
+
+
+# Random Forest Classfier
+rf = RandomForestClassifier(n_estimators=100, random_state=42,max_depth=5)
+rf.fit(X_train,y_train)
+rf_predicted = rf.predict(X_test)
+rf_conf_matrix = confusion_matrix(y_test, rf_predicted)
+rf_acc_score = accuracy_score(y_test, rf_predicted)
+print("confusion matrix")
+print(rf_conf_matrix)
+print("\n")
+print("Accuracy of Random Forest:",round(rf_acc_score*100,4),'%\n')
+print(classification_report(y_test,rf_predicted))
+
+
+
+# DecisionTreeClassifier
+dt = DecisionTreeClassifier(criterion = 'entropy',random_state=0,max_depth = 6)
+dt.fit(X_train, y_train)
+dt_predicted = dt.predict(X_test)
+dt_conf_matrix = confusion_matrix(y_test, dt_predicted)
+dt_acc_score = accuracy_score(y_test, dt_predicted)
+print("confusion matrix")
+print(dt_conf_matrix)
+print("\n")
+print("Accuracy of DecisionTreeClassifier:",dt_acc_score*100,'\n')
+print(classification_report(y_test,dt_predicted))
+
+
+
+# Most important features
+
+feature_importances = dt.feature_importances_
+features = X.columns
+frame = pd.DataFrame({'features': features, 'importance': feature_importances}).nlargest(3, 'importance')
+print(frame)
+
+imp_feature = pd.DataFrame({'Feature': ['age', 'sex', 'cp', 'trestbps', 'chol', 'fbs', 'restecg', 'thalach',
+       'exang', 'oldpeak', 'slope', 'ca', 'thal'], 'Importance': dt.feature_importances_})
+plt.figure(figsize=(10,4))
+plt.title("Barplot Representing Most Important Features in DT Classifier")
+plt.xlabel("importance ")
+plt.ylabel("features")
+plt.barh(imp_feature['Feature'],imp_feature['Importance'],color = 'rgbkymc')
+plt.show()
+
+
+
+# AdaBoost Classification
+ada_boost = AdaBoostClassifier(dt, n_estimators=200, random_state=42, learning_rate=.05)
+ada_boost.fit(X_train, y_train)
+ada_pred = ada_boost.predict(X_test)
+ada_conf_matrix = confusion_matrix(y_test, ada_pred)
+ada_acc_score = accuracy_score(y_test, ada_pred)
+print("confusion matrix")
+print(ada_conf_matrix)
+print("\n")
+print("Accuracy of Ada Boost Model:",round(ada_acc_score*100,4),'%\n')
+print(classification_report(y_test,ada_pred))
+
+
+# Support Vector Machine
+svm =  SVC(probability=True, random_state=0, kernel='rbf', C=2)
+svm.fit(X_train, y_train)
+svm_predicted = svm.predict(X_test)
+svm_conf_matrix = confusion_matrix(y_test, svm_predicted)
+svm_acc_score = accuracy_score(y_test, svm_predicted)
+print("confusion matrix")
+print(svm_conf_matrix)
+print("\n")
+print("Accuracy of Support Vector Classifier:",round(svm_acc_score*100,4),'%\n')
+print(classification_report(y_test,svm_predicted))
+
+
+
+# Voting Classifier
+
+clf = VotingClassifier(estimators = [('rf', rf), ('dt', dt), ('ada',ada_boost),('svm', svm), ('log', log)], voting='soft')
+
+# train the ensemble classifier
+clf.fit(X_train, y_train)
+clf_pred = clf.predict(X_test)
+clf_acc_score = accuracy_score(y_test, clf_pred)
+clf_conf_matrix = confusion_matrix(y_test, clf_pred)
+
+print("confusion matrix")
+print(clf_conf_matrix)
+print("\n")
+print("Accuracy of Voting Classifier:",round(clf_acc_score*100,4),'%\n')
+print(classification_report(y_test,svm_predicted))
+
+
+model_ev = pd.DataFrame({'Model': ['Logistic Regression','Random Forest','Decision Tree','Ada Boost','Support Vector Machine','Voting Classifier'], 
+                         'Accuracy': [log_acc_score*100, rf_acc_score*100,dt_acc_score*100,ada_acc_score*100,svm_acc_score*100,clf_acc_score*100]})
+print(model_ev)
+
+
+colors = ['red','green','blue','silver','yellow','orange',]
+plt.figure(figsize=(12,5))
+plt.title("Barplot Representing the Accuracy of Different Models")
+plt.xlabel("Accuracy %")
+plt.ylabel("Model Type")
+plt.bar(model_ev['Model'],model_ev['Accuracy'],color = colors)
+plt.show()
+
